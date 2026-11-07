@@ -33,6 +33,29 @@ final class CliCommandTest extends TestCase
         self::assertStringContainsString('Unknown check group', $process->getOutput());
     }
 
+    public function testSilverStripeYamlFailureReportsOriginalLineInJson(): void
+    {
+        $directory = sys_get_temp_dir() . '/codeguard-cli-yaml-' . bin2hex(random_bytes(5));
+        mkdir($directory);
+        file_put_contents($directory . '/composer.json', json_encode([
+            'type' => 'silverstripe-module',
+            'require' => ['silverstripe/framework' => '^5.0'],
+            'autoload' => ['psr-4' => ['Example\\' => 'src/']],
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($directory . '/config.yml', "---\nName: test\n---\nExample:\n\tinvalid: true\n");
+
+        try {
+            $process = $this->runCli(['check', '--path=' . $directory, '--group=silverstripe', '--format=json']);
+            self::assertSame(1, $process->getExitCode());
+            $report = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+            self::assertSame('fail', $report['results'][0]['status']);
+            self::assertSame('config.yml', $report['results'][0]['file']);
+            self::assertSame(5, $report['results'][0]['line']);
+        } finally {
+            $this->removeDirectory($directory);
+        }
+    }
+
     public function testGateExitCodeUsesConfiguredSeverityThreshold(): void
     {
         $directory = sys_get_temp_dir() . '/codeguard-gate-' . bin2hex(random_bytes(5));

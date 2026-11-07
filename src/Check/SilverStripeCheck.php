@@ -149,7 +149,7 @@ final class SilverStripeCheck implements QualityCheckInterface
                 continue;
             }
             try {
-                Yaml::parseFile($context->projectPath . '/' . $path, Yaml::PARSE_CUSTOM_TAGS);
+                $this->validateYamlFile($context->projectPath . '/' . $path);
             } catch (ParseException $exception) {
                 $results[] = CheckResult::issue(
                     $this->getName(),
@@ -158,6 +158,7 @@ final class SilverStripeCheck implements QualityCheckInterface
                     Severity::ERROR,
                     'Invalid YAML syntax: ' . $exception->getMessage(),
                     $path,
+                    $exception->getParsedLine() > 0 ? $exception->getParsedLine() : null,
                     suggestion: 'Correct the YAML syntax. Framework-specific schema validation requires a complete SilverStripe installation and is not performed here.',
                 );
             }
@@ -172,6 +173,43 @@ final class SilverStripeCheck implements QualityCheckInterface
         }
 
         return $results;
+    }
+
+    private function validateYamlFile(string $path): void
+    {
+        if (!is_file($path) || !is_readable($path)) {
+            throw new ParseException('YAML file does not exist or cannot be read.', -1, null, $path);
+        }
+        $contents = file_get_contents($path);
+        if ($contents === false) {
+            throw new ParseException('YAML file could not be read.', -1, null, $path);
+        }
+
+        $contents = str_replace(["\r\n", "\r"], "\n", $contents);
+        if (str_starts_with($contents, "\u{FEFF}")) {
+            $contents = substr($contents, 3);
+        }
+        // Symfony parses one document at a time; markers only delimit documents at column zero.
+        $documents = preg_split('/(?=^---(?:[ \t]|$))/m', $contents);
+        if ($documents === false) {
+            throw new \RuntimeException('Unable to split YAML documents for validation.');
+        }
+
+        $lineOffset = 0;
+        foreach ($documents as $document) {
+            try {
+                Yaml::parse($document, Yaml::PARSE_CUSTOM_TAGS);
+            } catch (ParseException $exception) {
+                if ($exception->getParsedLine() > 0) {
+                    // Some parser errors point just past the final line of a document.
+                    $lastLine = substr_count($document, "\n") + (str_ends_with($document, "\n") ? 0 : 1);
+                    $exception->setParsedLine(min($exception->getParsedLine(), max(1, $lastLine)) + $lineOffset);
+                }
+                $exception->setParsedFile($path);
+                throw $exception;
+            }
+            $lineOffset += substr_count($document, "\n");
+        }
     }
 
     private function normalizeVersion(string $version): string
