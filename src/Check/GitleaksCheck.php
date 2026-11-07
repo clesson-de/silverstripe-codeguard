@@ -6,6 +6,9 @@ namespace Clesson\SilverStripeCodeGuard\Check;
 
 use Clesson\SilverStripeCodeGuard\Support\ExecutableLocator;
 use Clesson\SilverStripeCodeGuard\Support\GitleaksReportParser;
+use Clesson\SilverStripeCodeGuard\Support\GitIndexSnapshot;
+use Clesson\SilverStripeCodeGuard\Support\ProjectFiles;
+use Clesson\SilverStripeCodeGuard\Support\WorkingTreeSnapshot;
 use Symfony\Component\Process\Process;
 
 final class GitleaksCheck implements QualityCheckInterface
@@ -45,12 +48,36 @@ final class GitleaksCheck implements QualityCheckInterface
             )];
         }
 
-        $process = new Process(
-            [$executable, 'dir', '--redact=100', '--exit-code=1', '--report-format=json', '--no-banner', $context->projectPath],
-            $context->projectPath,
-            timeout: 180,
-        );
-        $process->run();
+        $snapshot = null;
+        $snapshotManager = new WorkingTreeSnapshot(new ProjectFiles(), new GitIndexSnapshot());
+        $scanPath = $context->projectPath;
+        try {
+            if (($context->configuration['runtime']['staged'] ?? false) !== true) {
+                $snapshot = $snapshotManager->create($context->projectPath);
+                $scanPath = $snapshot;
+            }
+            $arguments = [$executable, 'dir', '--redact=100', '--exit-code=3', '--report-format=json', '--report-path=-', '--no-banner'];
+            $configPath = $context->projectPath . '/.gitleaks.toml';
+            if ($snapshot !== null && is_file($configPath)
+                && !getenv('GITLEAKS_CONFIG') && !getenv('GITLEAKS_CONFIG_TOML')) {
+                array_push($arguments, '--config', $configPath);
+            }
+            $environment = null;
+            if ($snapshot !== null) {
+                array_push($arguments, '--gitleaks-ignore-path', $context->projectPath);
+                $configuredPath = getenv('GITLEAKS_CONFIG');
+                if ($configuredPath !== false && $configuredPath !== '' && !str_starts_with($configuredPath, '/')) {
+                    $environment = ['GITLEAKS_CONFIG' => $context->projectPath . '/' . $configuredPath];
+                }
+            }
+            $arguments[] = $snapshot !== null ? '.' : $scanPath;
+            $process = new Process($arguments, $snapshot ?? $context->projectPath, $environment, timeout: 180);
+            $process->run();
+        } finally {
+            if ($snapshot !== null) {
+                $snapshotManager->remove($snapshot);
+            }
+        }
         $scanScope = $context->configuration['runtime']['scan_scope'] ?? 'current working tree';
         if ($process->getExitCode() === 0) {
             return [CheckResult::pass(
@@ -59,8 +86,8 @@ final class GitleaksCheck implements QualityCheckInterface
                 "Gitleaks found no secrets in the $scanScope; commit history was not checked.",
             )];
         }
-        if ($process->getExitCode() === 1) {
-            $findings = (new GitleaksReportParser())->parse($process->getOutput(), $context->projectPath);
+        if ($process->getExitCode() === 3) {
+            $findings = (new GitleaksReportParser())->parse($process->getOutput(), $scanPath);
             if ($findings !== []) {
                 return array_map(
                     static fn (array $finding): CheckResult => CheckResult::issue(

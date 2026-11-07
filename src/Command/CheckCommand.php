@@ -93,6 +93,7 @@ final class CheckCommand extends Command
             $configuration = $this->configurationLoader->load($projectPath);
             $configuration['runtime']['history_enabled'] = (bool) $input->getOption('history');
             $configuration['runtime']['history_project_path'] = $originalProjectPath;
+            $configuration['runtime']['staged'] = (bool) $input->getOption('staged');
             $configuration['runtime']['scan_scope'] = $input->getOption('staged')
                 ? 'staged Git index snapshot'
                 : 'current working tree';

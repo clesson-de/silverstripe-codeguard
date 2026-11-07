@@ -218,12 +218,12 @@ final class CheckImplementationTest extends TestCase
         mkdir($directory . '/vendor/bin', 0777, true);
         $scanner = $directory . '/vendor/bin/gitleaks';
         $report = json_encode([[
-            'File' => $directory . '/config/test.yml',
+            'File' => 'config/test.yml',
             'StartLine' => 12,
             'RuleID' => 'synthetic-rule',
             'Secret' => 'synthetic-only-value',
         ]], JSON_THROW_ON_ERROR);
-        file_put_contents($scanner, "#!/bin/sh\nprintf '%s\\n' " . escapeshellarg($report) . "\nexit 1\n");
+        file_put_contents($scanner, "#!/bin/sh\nprintf '%s\\n' " . escapeshellarg($report) . "\nexit 3\n");
         chmod($scanner, 0755);
 
         try {

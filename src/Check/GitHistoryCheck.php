@@ -55,12 +55,12 @@ final class GitHistoryCheck implements QualityCheckInterface
             )];
         }
 
-        $process = new Process([$executable, 'git', '--redact=100', '--exit-code=1', '--report-format=json', '--no-banner'], $historyPath, timeout: 300);
+        $process = new Process([$executable, 'git', '--redact=100', '--exit-code=3', '--report-format=json', '--report-path=-', '--no-banner'], $historyPath, timeout: 300);
         $process->run();
         if ($process->getExitCode() === 0) {
             return [CheckResult::pass($this->getName(), $this->getGroup(), 'Gitleaks found no secrets in the Git history.')];
         }
-        if ($process->getExitCode() === 1) {
+        if ($process->getExitCode() === 3) {
             $findings = (new GitleaksReportParser())->parse($process->getOutput(), $historyPath);
             if ($findings !== []) {
                 return array_map(

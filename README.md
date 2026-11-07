@@ -34,7 +34,9 @@ vendor/bin/silverstripe-codeguard gate
 
 `check` returns exit code 1 when a check fails or errors, 0 when there are no failed checks, and 2 for invalid CLI arguments. `gate` applies `gate.fail_on` and returns 1 when a finding at a configured severity blocks release. Warnings and skipped checks remain visible; neither is reported as a pass. JSON output contains the same result statuses and locations as console output.
 
-The default scan covers the current working tree, not the staging index or Git history. `check --staged` extracts a temporary snapshot of the Git index and checks that snapshot without changing the project. `check --history` separately requests a Gitleaks history scan. Neither scan proves the absence of all secrets.
+The default scan covers the current working tree, not the staging index or Git history. For Gitleaks, CodeGuard copies Git-tracked files and non-ignored untracked files into a private temporary snapshot; ignored untracked files such as a Git-ignored `vendor/` are excluded, but tracked files remain included even if ignored. Deleted files and symlinks are not scanned. As with other file checks, outside a Git working tree CodeGuard uses a simplified root `.gitignore` fallback and excludes `vendor/`, `node_modules/`, `coverage/`, and `.git/` directories; it cannot identify tracked files or fully reproduce Git's ignore rules. The snapshot is removed after the scan.
+
+Gitleaks scans snapshot files using project-relative paths. Project `.gitleaks.toml` and `.gitleaksignore` settings still apply, but path-based rules and fingerprints generated from absolute paths may need adjustment. Relative paths in extended Gitleaks configurations resolve within the snapshot, so referenced files must be included in the selected file set. `check --staged` instead extracts a temporary snapshot of the Git index and checks that snapshot without changing the project. `check --history` separately requests a Gitleaks history scan. None of these scans proves the absence of all secrets.
 
 ## Configuration
 
