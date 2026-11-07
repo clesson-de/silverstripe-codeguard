@@ -1,0 +1,24 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoloaders = [
+    $GLOBALS['_composer_autoload_path'] ?? null,
+    dirname(__DIR__) . '/vendor/autoload.php',
+    dirname(__DIR__, 3) . '/autoload.php',
+];
+$autoload = null;
+foreach ($autoloaders as $candidate) {
+    if (is_string($candidate) && is_file($candidate)) {
+        $autoload = $candidate;
+        break;
+    }
+}
+if ($autoload === null) {
+    fwrite(STDERR, "Composer autoloader not found. Install the package dependencies first.\n");
+    exit(1);
+}
+require $autoload;
+
+exit(Clesson\SilverStripeCodeGuard\ApplicationFactory::create()->run());

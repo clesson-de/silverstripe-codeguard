@@ -1,0 +1,10 @@
+{
+  "name": "example/silverstripe-fixture-app",
+  "description": "A synthetic SilverStripe application fixture for tests.",
+  "type": "project",
+  "license": "MIT",
+  "require": {
+    "php": "^8.2",
+    "silverstripe/recipe-cms": "^5.0 || ^6.0"
+  }
+}

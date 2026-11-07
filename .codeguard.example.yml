@@ -1,0 +1,74 @@
+project:
+  type: module
+  supported_php: ["8.2", "8.3"]
+  supported_silverstripe: ["5", "6"]
+
+checks:
+  gitleaks:
+    enabled: true
+    missing: error
+  personal_data:
+    enabled: true
+    severity: warning
+    allow:
+      - "support@example.org"
+  forbidden_files:
+    enabled: true
+    patterns:
+      - "*.sql"
+      - "*.sql.gz"
+      - "*.sql.zip"
+      - "*.sqlite"
+      - "*.sqlite3"
+      - "*.db"
+      - "*.bak"
+      - "*.backup"
+      - "*.old"
+      - "*.tmp"
+      - "*.temp"
+      - "*.log"
+      - "*.dmp"
+      - "*.stackdump"
+      - ".env"
+      - ".env.local"
+      - ".env.development"
+      - ".env.production"
+      - ".env.test"
+      - "auth.json"
+      - ".idea/**"
+      - ".vscode/**"
+      - "vendor/**"
+      - "node_modules/**"
+      - "coverage/**"
+      - "copilot-instructions.md"
+      - "copilot-plan*.md"
+      - "**/*plan*.md"
+      - "*.debug"
+    exclude:
+      - "tests/fixtures/**"
+  composer:
+    enabled: true
+    audit: true
+    outdated: false
+    resolve: false
+  documentation:
+    enabled: true
+    changelog: warning
+  code_quality:
+    phpstan:
+      enabled: false
+      missing: warning
+      command: ["analyse", "--no-progress", "."]
+    phpcs:
+      enabled: false
+      missing: warning
+      command: ["."]
+    phpunit:
+      enabled: false
+      missing: warning
+      command: ["--no-coverage"]
+  silverstripe:
+    enabled: true
+
+gate:
+  fail_on: ["error", "critical", "high"]
